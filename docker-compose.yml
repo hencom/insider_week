@@ -1,0 +1,88 @@
+version: '3.7'
+services:
+
+  db_iw:
+    image: "postgres:13.4-alpine"
+    container_name: db_iw
+
+    environment:
+      POSTGRES_PASSWORD: 'iw2022'
+      POSTGRES_USER: 'iwuser'
+      POSTGRES_DB: 'iwdb'
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - nginx_network
+  nginx_iw:
+    image: nginx:latest
+    container_name: nginx_iw
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d
+      - ./frontend:/frontend
+      - ./swagger:/swagger
+
+    depends_on:
+      - backend_iw
+    networks:
+      - nginx_network
+
+  redis_iw:
+    image: redis:latest
+    restart: always
+    container_name: redis_iw
+    command: --port 6379
+    ports:
+      - '6379:6379'
+    expose:
+      - '6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - nginx_network
+
+  backend_iw:
+    container_name: backend_iw
+    build:
+      context: ./config/docker
+      dockerfile: ./Dockerfile
+    working_dir: /app
+    command: bash -c "python -m hypercorn --reload -b 0.0.0.0:8002 main:asgi_app"
+    depends_on:
+      - db_iw
+    volumes:
+      - ./app:/app
+      - ./media:/media
+    ports:
+      - "8002:8002"
+    expose:
+      - "8002"
+    networks:
+      - nginx_network
+
+  celery_iw:
+    build:
+      context: ./config/docker
+      dockerfile: ./Dockerfile
+    volumes:
+      - ./app:/app
+      - ./media:/media
+    working_dir: /app
+    container_name: celery_iw
+    command: celery -A tasks.tasks worker --loglevel=INFO 
+    networks:
+      - nginx_network
+    links:
+      - redis_iw
+
+networks:
+  nginx_network:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+
+

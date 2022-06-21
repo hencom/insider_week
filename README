@@ -1,0 +1,4 @@
+Перейти в папку с проектом 
+docker-compose up
+ссылка: http://127.0.0.1:8080
+swagger: http://127.0.0.1:8080/insider_week/openapi/swagger
